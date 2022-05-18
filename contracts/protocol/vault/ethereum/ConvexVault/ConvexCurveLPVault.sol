@@ -71,15 +71,17 @@ contract ConvexCurveLPVault is GeneralVault {
     require(_asset != address(0), Errors.VT_PROCESS_YIELD_INVALID);
     uint256 yieldAmount = IERC20(_asset).balanceOf(address(this));
 
-    // transfer to treasury
-    if (_vaultFee > 0) {
-      uint256 treasuryAmount = _processTreasury(_asset, yieldAmount);
-      yieldAmount = yieldAmount.sub(treasuryAmount);
-    }
+    if (yieldAmount > 0) {
+      // transfer to treasury
+      if (_vaultFee > 0) {
+        uint256 treasuryAmount = _processTreasury(_asset, yieldAmount);
+        yieldAmount = yieldAmount.sub(treasuryAmount);
+      }
 
-    // transfer to yieldManager
-    address yieldManager = _addressesProvider.getAddress('YIELD_MANAGER');
-    TransferHelper.safeTransfer(_asset, yieldManager, yieldAmount);
+      // transfer to yieldManager
+      address yieldManager = _addressesProvider.getAddress('YIELD_MANAGER');
+      TransferHelper.safeTransfer(_asset, yieldManager, yieldAmount);
+    }
 
     emit ProcessYield(_asset, yieldAmount);
   }

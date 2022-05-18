@@ -73,6 +73,15 @@ contract GeneralVault is VersionedInitializable {
    * @param _amount The deposit amount
    */
   function depositCollateral(address _asset, uint256 _amount) external payable virtual {
+    // Check to prevent user from losing ETH
+    if (_asset != address(0)) {
+      // asset is ERC20
+      require(msg.value == 0, Errors.VT_COLLATERAL_DEPOSIT_INVALID);
+    } else {
+      // asset is ETH
+      require(msg.value == _amount, Errors.VT_COLLATERAL_DEPOSIT_REQUIRE_ETH);
+    }
+
     // Deposit asset to vault and receive stAsset
     // Ex: if user deposit 100ETH, this will deposit 100ETH to Lido and receive 100stETH TODO No Lido
     (address _stAsset, uint256 _stAssetAmount) = _depositToYieldPool(_asset, _amount);

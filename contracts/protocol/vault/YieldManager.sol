@@ -155,9 +155,10 @@ contract YieldManager is VersionedInitializable, Ownable {
       uint256 length
     ) = ILendingPool(provider.getLendingPool()).getBorrowingAssetAndVolumes();
 
-    if (totalVolume == 0) assetYields = new AssetYield[](0);
-
-    assetYields = new AssetYield[](length);
+    if (totalVolume == 0) 
+      assetYields = new AssetYield[](0);
+    else
+      assetYields = new AssetYield[](length);
     uint256 extraYieldAmount = exchangedAmount;
 
     for (uint256 i; i < length; ++i) {

@@ -17,14 +17,29 @@ library UniswapAdapter {
   using PercentageMath for uint256;
   using SafeERC20 for IERC20;
 
+  struct Path {
+    address[] tokens;
+    uint256[] fees;
+  }
+
   function swapExactTokensForTokens(
     ILendingPoolAddressesProvider addressesProvider,
     address assetToSwapFrom,
     address assetToSwapTo,
     uint256 amountToSwap,
-    uint256 poolFee, // 1% = 10000
-    uint256 slippage // 2% = 200
+    uint256 slippage,
+    Path memory path
   ) external returns (uint256) {
+    // Check path is valid
+    require(
+      path.tokens.length > 1 && path.tokens.length - 1 == path.fees.length,
+      Errors.VT_SWAP_PATH_LENGTH_INVALID
+    );
+    require(
+      path.tokens[0] == assetToSwapFrom && path.tokens[path.tokens.length - 1] == assetToSwapTo,
+      Errors.VT_SWAP_PATH_TOKEN_INVALID
+    );
+
     uint256 minAmountOut = _getMinAmount(
       addressesProvider,
       assetToSwapFrom,
@@ -38,18 +53,16 @@ library UniswapAdapter {
     IERC20(assetToSwapFrom).safeApprove(address(UNISWAP_ROUTER), 0);
     IERC20(assetToSwapFrom).safeApprove(address(UNISWAP_ROUTER), amountToSwap);
 
-    bool useEthPath = _useMultihopSwap(addressesProvider, assetToSwapFrom, amountToSwap);
-
     uint256 receivedAmount = 0;
-    if (useEthPath) {
+    if (path.tokens.length > 2) {
+      bytes memory _path;
+      for (uint256 i; i < path.tokens.length - 1; ++i) {
+        _path = abi.encodePacked(_path, path.tokens[i], uint24(path.fees[i]));
+      }
+      _path = abi.encodePacked(_path, assetToSwapTo);
+
       ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
-        path: abi.encodePacked(
-          assetToSwapFrom,
-          uint24(poolFee),
-          addressesProvider.getAddress('WETH'),
-          uint24(poolFee),
-          assetToSwapTo
-        ),
+        path: _path,
         recipient: address(this),
         deadline: block.timestamp,
         amountIn: amountToSwap,
@@ -63,7 +76,7 @@ library UniswapAdapter {
       ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
         tokenIn: assetToSwapFrom,
         tokenOut: assetToSwapTo,
-        fee: uint24(poolFee),
+        fee: uint24(path.fees[0]),
         recipient: address(this),
         deadline: block.timestamp,
         amountIn: amountToSwap,
@@ -115,14 +128,5 @@ library UniswapAdapter {
       .percentMul(PercentageMath.PERCENTAGE_FACTOR.sub(slippage));
 
     return minAmountOut;
-  }
-
-  function _useMultihopSwap(
-    ILendingPoolAddressesProvider addressesProvider,
-    address _asset,
-    uint256 _amount
-  ) internal returns (bool) {
-    address WETH = addressesProvider.getAddress('WETH');
-    return _asset != WETH;
   }
 }

@@ -114,14 +114,19 @@ contract YieldManager is VersionedInitializable, Ownable {
    *      3. deposit to pool for suppliers
    * @param _offset assets array's start offset.
    * @param _count assets array's count when perform distribution.
+   * @param _paths uniswap path information
    **/
-  function distributeYield(uint256 _offset, uint256 _count) external onlyAdmin {
+  function distributeYield(
+    uint256 _offset,
+    uint256 _count,
+    UniswapAdapter.Path[] memory _paths
+  ) external onlyAdmin {
     // 1. convert from asset to exchange token via uniswap
     for (uint256 i = 0; i < _count; i++) {
       address asset = _assetsList[_offset + i];
       require(asset != address(0), Errors.UL_INVALID_INDEX);
       uint256 _amount = IERC20Detailed(asset).balanceOf(address(this));
-      _convertAssetToExchangeToken(asset, _amount);
+      _convertAssetToExchangeToken(asset, _amount, _paths[i]);
     }
     uint256 exchangedAmount = IERC20Detailed(_exchangeToken).balanceOf(address(this));
 
@@ -174,15 +179,20 @@ contract YieldManager is VersionedInitializable, Ownable {
    * @dev Convert asset to exchange token via Uniswap
    * @param asset The address of asset being exchanged
    * @param amount The amount of asset being exchanged
+   * @param path The uniswap path
    */
-  function _convertAssetToExchangeToken(address asset, uint256 amount) internal {
+  function _convertAssetToExchangeToken(
+    address asset,
+    uint256 amount,
+    UniswapAdapter.Path memory path
+  ) internal {
     UniswapAdapter.swapExactTokensForTokens(
       _addressesProvider,
       asset,
       _exchangeToken,
       amount,
-      UNISWAP_FEE,
-      SLIPPAGE
+      SLIPPAGE,
+      path
     );
   }
 
